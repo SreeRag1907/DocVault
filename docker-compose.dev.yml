@@ -1,0 +1,51 @@
+version: "3.9"
+
+# For LOCAL DEVELOPMENT ONLY. Production uses RDS - see DEPLOYMENT.md.
+# This exists purely so you don't need to provision a real RDS instance
+# just to run `npm run dev` on your laptop.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: docvault-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-docvault}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-changeme}
+      POSTGRES_DB: ${PGDATABASE:-docvault}
+    ports:
+      - "5432:5432"
+    volumes:
+      - docvault_pg_dev_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: docvault-minio-dev
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - docvault_minio_dev_data:/data
+    command: server /data --console-address ":9001"
+
+  minio-create-bucket:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin) do echo 'Waiting for MinIO...' && sleep 1; done;
+      if ! /usr/bin/mc ls myminio/docvault-files-dev; then
+        /usr/bin/mc mb myminio/docvault-files-dev;
+        /usr/bin/mc anonymous set public myminio/docvault-files-dev;
+      fi;
+      exit 0;
+      "
+
+volumes:
+  docvault_pg_dev_data:
+  docvault_minio_dev_data:
