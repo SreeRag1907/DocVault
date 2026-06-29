@@ -28,7 +28,15 @@ async function start() {
   });
 }
 
-start().catch((err) => {
-  console.error("Failed to start server:", err);
-  process.exit(1);
-});
+if (process.env.VERCEL) {
+  // Initialize DB schema asynchronously on function invocation in Vercel
+  initSchema().catch((err) => console.error("Failed to initialize schema in Vercel:", err));
+  seedAdminIfNeeded().catch((err) => console.error("Failed to seed admin in Vercel:", err));
+} else {
+  start().catch((err) => {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  });
+}
+
+export default app;
